@@ -12,6 +12,7 @@ While it is possible for GHES actions runners to be set up and streamlined for a
 
 The following are required for setup:
 
+- A Mac computer outfitted with `homebrew`
 - An AWS account
 - A GitHub Enterprise server
 - An understanding of [Continuous Integration (CI)](https://docs.github.com/en/actions/automating-builds-and-tests/about-continuous-integration)
@@ -32,6 +33,23 @@ A widely used open-source community-maintained solution is available [**here**](
 - Allows customization of software installed in the self-hosted runner image
 
 In order to set up a Kubernetes cluster, AWS Elastic Kubernetes Service (EKS) works as the managed service for automation of scaling, deployment, and overall management of the cluster(s).
+
+# Set up Kubernetes Cluster on EKS
+
+## Get AWS Credentials
+
+As a first step, be sure to clone this repository to your local computer and then cd into its location.
+
+Depending on your organization or self-accessed AWS channel, there are a number of ways to retrieve AWS "keys" both through the Management Console as well as the AWS CLI. See the [AWS Documentation](https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html) for more information on how to retrieve these.
+
+You will need the following 3 variables:
+
+- `AWS_ACCESS_KEY_ID` (something like `AKIAIOSFODNN7EXAMPLE`)
+- `AWS_SECRET_ACCESS_KEY` (something like `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`)
+- `AWS_SESSION_TOKEN`
+
+> **Note:** The `AWS_SESSION_TOKEN` may not be required and is based on security requirements enforced on the account.
+
 
 ### Troubleshooting
 
