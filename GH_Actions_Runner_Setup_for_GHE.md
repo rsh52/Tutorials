@@ -50,6 +50,27 @@ You will need the following 3 variables:
 
 > **Note:** The `AWS_SESSION_TOKEN` may not be required and is based on security requirements enforced on the account.
 
+## Install the Kubernetes CLI (if necessary)
+
+The `kubectl` command line utility (CLI) must be within +/-1 minor versions of the AWS control plane. Install the newest version of `kubectl`, which at the time of this writing is **v1.20**.
+
+```bash
+# on Mac
+brew install kubernetes-cli
+```
+
+## Install the `eksctl` utility (if necessary)
+This tool automates common workflows on EKS.
+
+```bash
+# on Mac
+brew tap weaveworks/tap
+brew install weaveworks/tap/eksctl
+```
+
+## Create the Kubernetes Cluster
+
+Now it's showtime!
 
 ### Troubleshooting
 
