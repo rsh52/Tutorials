@@ -59,6 +59,8 @@ The `kubectl` command line utility (CLI) must be within +/-1 minor versions of t
 brew install kubernetes-cli
 ```
 
+For installation options check the [Kubernetes Install Tools page](https://kubernetes.io/docs/tasks/tools/).
+
 ## Install the `eksctl` utility (if necessary)
 This tool automates common workflows on EKS.
 
@@ -71,6 +73,203 @@ brew install weaveworks/tap/eksctl
 ## Create the Kubernetes Cluster
 
 Now it's showtime!
+
+Let's create our `cluster.yaml` manifest which will provide the instructions for the following:
+
+- Kubernetes control plane
+- Metadata: name, region, version
+- VPC subnets
+- Node information: name, type, amount, size, etc.
+
+```yaml
+apiVersion: eksctl.io/v1alpha5
+Kind: ClusterConfig
+
+metadata:
+  name: mycluster
+  region: us-east-1
+  version: "1.20"
+
+vpc:
+  subnets:
+    private:
+      us-east-1a: { id: "subnet-<yoursubnetinfo1>" }
+      us-east-1b: { id: "subnet-<yoursubnetinfo2>" }
+
+managedNodeGroups:
+  - name: ekstest-ng
+    instanceType: t2.micro
+    desiredCapacity: 2
+    privateNetworking: true
+    volumeSize: 30
+    ssh:
+      allow: true
+      publicKeyName: mykey
+
+```
+
+Things to note: 
+
+- Replace the necessary elements with your cluster information
+- The current YAML uses t2.micro (free tier) EC2 instances which may not meet requirements for most projects
+
+Once set up, run the following to create the cluster. This will take **20-30minutes to complete** ☕:
+
+```bash
+eksctl create cluster -f cluster.yaml
+```
+
+A lot of dialogue will fly across your terminal, the important thing is to see "ready" statuses after completion and a final:
+
+```
+2021-07-07 12:08:01 [✔]  EKS cluster "cgt" in "us-east-1" region is ready
+```
+
+You can then confirm the available nodes with:
+
+```bash
+kubectl get nodes -o wide
+```
+
+## Deploy the GitHub Actions Runner Application
+
+If you've made it this far, congrats! 🎉 Just a little ways left to go. In this section we will walk through the following:
+
+1. Install cert-manager
+2. Install actions-runner-controller
+3. Generate a GitHub Enterprise personal access token (PAT) with appropriate permissions
+4. Apply a RunnerDeployment object to the cluster
+
+### Install cert-manager
+
+The actions-runner-controller app requires [cert-manager](https://cert-manager.io/docs/). This is a Kubernetes controller that implements a general purpose certification management system and is needed for the GHA controller to talk to GitHub/GHES. Installation instructions can be found [here](https://cert-manager.io/docs/installation/kubernetes/).
+
+Run the following:
+
+```bash
+kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.3.1/cert-manager.yaml
+```
+
+Once again, a lot of stuff will fly across your terminal, but luckily this won't take very long.
+
+Next, tell the controller manager about your organization's GHES instance:
+
+```bash
+kubectl set env deploy controller-manager \
+  -c manager GITHUB_ENTERPRISE_URL=<YOUR GHE URL HERE> \
+  --namespace actions-runner-system
+```
+
+And confrim the following return:
+
+```
+deployment.apps/controller-manager env updated
+```
+
+### Generate Personal Access Token on GHE Servers (if necesary)
+
+This section may not be necessary for all users, but if a PAT already exists you may want to check the following settings are enabled.
+
+Log into GitHub Enterprise > in the upper-right corner of any page, click your profile photo > click **Settings**.
+
+In the left sidebar, click **Developer settings** > **Personal access tokens** > **Generate new token**.
+
+Allow the following:
+
+- [x] repo (Full control)
+- [x] workflow (Full control)
+- [x] admin:org (Full control)
+- [x] admin:public_key (read:public_key)
+- [x] admin:repo_hook (read:repo_hook)
+- [x] admin:org_hook (Full control)
+- [x] notifications (Full control)
+- [x] admin:enterprise (Full control)
+
+Click **Generate token**.
+
+On the next page, copy the PAT and store it in a safe place. In order to use it, you can create an environment variable:
+
+```bash
+kubectl create secret generic controller-manager \
+    -n actions-runner-system \
+    --from-literal=github_token=$GHA_GHES_TOKEN
+```
+
+And confirm:
+
+```
+secret/controller-manager created
+```
+
+### Create a Runner Deployment
+
+The `actions-runner-controller` supports a Kubernetes object of the kind `RunnerDeployment` which is analogous to the `Deployment` object in default Kubernetes and allows spinning up multiple pods and providing self-healing and fault tolerance.
+
+The goal here is to accomplish the following:
+
+- Create a `RunnerDeployment` named `my-org-runners`
+- Have 3 runners available at all times
+- The scope of the runner should be your GitHub organization
+- Runners should have the extra label `my-runner`. This will allow targeting of GitHub Actions workflows to these specific runners.
+
+The `runners.yaml` file which implements these settings is reproduced below:
+
+```yaml
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: RunnerDeployment
+metadata:
+  name: my-org-runners
+spec:
+  replicas: 3
+  template:
+    spec:
+      organization: CGTDataOps
+      labels:
+      - my-runner
+```
+
+To deploy, run:
+
+```bash
+kubectl apply -f runners.yaml
+```
+
+```
+runnerdeployment.actions.summerwind.dev/cgt-dataops-runners created
+```
+
+After a short while, the pods should be online. You can see your pods with:
+
+```bash
+kubectl get pods -o wide
+```
+
+### Set up the Github Organization (only needed once)
+
+Go to GHES > Settings > Organizations > YourOrganization Settings > Actions > scroll down. In the **Runner Groups** table, expand the **Default** ribbon. You should see at least 3 runners! You may also see "Offline" runners from previous deployments. The 3 runners we just deployed should be "Idle" at this time.
+
+By default, GitHub Enterprise makes runners available to private repos only, however in your org you may like to keep repos public so others can see your work. To make the runners accessible to public repos, click on ... at the far right of the **Runner Groups** ribbon > **Edit name and repository access** > ✓ **Allow public repositories** > **Save group**.
+
+### Using the Runners
+There is no additional setup needed on a repository level to use the runners, as long as the repository is within your organization.
+
+To verify that you have runners available for your repo, go to Settings > Actions, and scroll all the way to the bottom. You should see that the 3 runners are shared with the repository.
+
+## Clean Up
+
+Should you choose to tear down the cluster, run the following command and allot about 5 minutes for it to complete:
+
+```bash
+eksctl delete cluster -f cluster.yaml
+```
+
+And confirm the terminal ends with something like the following:
+
+```
+2021-07-08 11:14:49 [✔]  all cluster resources were deleted
+```
+
+---
 
 ### Troubleshooting
 
