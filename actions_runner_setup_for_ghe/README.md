@@ -1,8 +1,8 @@
 # GitHub Actions Runner Setup for GitHub Enterprise
 
-# Introduction
+---
 
-## Purpose
+# Purpose
 
 This tutorial describes how to set up a **Kubernetes** cluster on **Amazon Web Services (AWS)** to launch **runners** accessible to applications on a **GitHub Enterprise Server (GHES)**. This tutorial is not targetted towards Kubernetes experts and is meant to be accessible and approachable by all audiences. 
 
@@ -33,6 +33,8 @@ A widely used open-source community-maintained solution is available [**here**](
 - Allows customization of software installed in the self-hosted runner image
 
 In order to set up a Kubernetes cluster, AWS Elastic Kubernetes Service (EKS) works as the managed service for automation of scaling, deployment, and overall management of the cluster(s).
+
+---
 
 # Set up Kubernetes Cluster on EKS
 
@@ -271,7 +273,7 @@ And confirm the terminal ends with something like the following:
 
 ---
 
-### Troubleshooting
+## Troubleshooting
 
 #### _Problem: AWS EKS clusters terminate during creation_
 
@@ -291,3 +293,10 @@ If it is a symbolic link, remove it and link the versio from `homebrew` (if on M
 sudo rm /usr/local/bin/kubectl
 brew link kubernetes-cli
 ```
+
+---
+
+## Sources
+
+- [**AWS Getting Started `eksctl`**](https://docs.aws.amazon.com/eks/latest/userguide/getting-started-eksctl.html)
+- [**Github Actions Runner Controller**](https://github.com/actions-runner-controller/actions-runner-controller)
